@@ -1,0 +1,23 @@
+name: Trigger Carma-Carla Integration Build
+
+# This workflow triggers on every push to the 'develop' and 'master' branches
+on:
+  push:
+    branches:
+      - develop
+      - master
+
+jobs:
+  # Job to trigger a build in the carma-carla-integration repository
+  trigger-build:
+    runs-on: ubuntu-latest # Specify the runner environment
+
+    steps:
+      - name: Trigger Dockerhub Workflow on Carma-Carla-Integration
+        run: |
+          # Sends a POST request to GitHub API to trigger the dockerhub workflow in the carma-carla-integration repository
+          curl -X POST \
+            -H "Authorization: token ${{ secrets.CARMA_CARLA_INTEGRATION_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/usdot-fhwa-stol/carma-carla-integration/actions/workflows/dockerhub.yml/dispatches \
+            -d '{"ref":"develop", "inputs": {"triggered_by": "Sensorlib"}}'
