@@ -19,5 +19,5 @@ jobs:
           curl -X POST \
             -H "Authorization: token ${{ secrets.CARMA_CARLA_INTEGRATION_PAT }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/SaikrishnaBairamoni/carma-carla-integration/actions/workflows/dockerhub.yml/dispatches \
+            https://api.github.com/repos/usdot-fhwa-stol/carma-carla-integration/actions/workflows/dockerhub.yml/dispatches \
             -d '{"ref":"develop", "inputs": {"triggered_by": "Sensorlib"}}'
