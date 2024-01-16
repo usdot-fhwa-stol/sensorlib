@@ -11,11 +11,11 @@ import threading
 import time
 from time import sleep
 
+import sys
+sys.path.append('../')
 from util.CarlaLoader import CarlaLoader
 CarlaLoader.load_carla_lib()
 import carla
-import sys
-sys.path.append('../')
 
 from collector.SensorDataCollector import SensorDataCollector
 from noise_models.NoiseModelFactory import NoiseModelFactory
