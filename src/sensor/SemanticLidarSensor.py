@@ -8,7 +8,7 @@
 
 from collections import Counter
 from dataclasses import replace
-
+import carla
 import numpy as np
 from scipy.spatial import distance
 import math
@@ -88,6 +88,9 @@ class SemanticLidarSensor(SimulatedSensor):
         actor_angular_extents = self.compute_actor_angular_extents(detected_objects)
         detection_thresholds = self.compute_adjusted_detection_thresholds(detected_objects, object_ranges)
 
+        # TODO
+        #print(f"ground truth: {detected_objects}")
+
         # Instantaneous geometry association
         min_sample_size = self.__simulated_sensor_config["geometry_reassociation"]["min_sample_count"]
         max_sample_size = self.__simulated_sensor_config["geometry_reassociation"]["max_sample_count"]
@@ -98,15 +101,21 @@ class SemanticLidarSensor(SimulatedSensor):
 
         for hit_id, hitpoint_list in downsampled_hitpoints.items():
             for hitpoint in hitpoint_list:
+                #print(f"id: {hit_id} and {hitpoint}")
                 hitpoints_without_ids.append(hitpoint)
 
-
         hitpoints = self.compute_instantaneous_actor_id_association(hitpoints_without_ids, detected_objects)
+
+        for hit_id, hitpoint_list in hitpoints.items():
+            for hitpoint in hitpoint_list:
+                print(f"id: {hit_id} and {hitpoint}")
+                #hitpoints_without_ids.append(hitpoint)
 
         # Turning off temporarily as the function is clearning all the objects
         # https://github.com/usdot-fhwa-stol/carma-utils/issues/194
         detected_objects = self.apply_occlusion(detected_objects, actor_angular_extents, hitpoints,
                                                detection_thresholds)
+        print(f"After occlussion: {len(detected_objects)}")
         #compare ground truth for position and rotation for SUMO vehicle
         self.store_groundtruth_pose_angular_diff(detected_objects)
 
@@ -117,7 +126,7 @@ class SemanticLidarSensor(SimulatedSensor):
         detected_objects = self.update_object_frame_and_timestamps(detected_objects, timestamp)
         #due to sumo vehicle not having velocity and angular velocity in CARLA, added a patch to calculate those parameters
         detected_objects = self.update_velocity_angularVelocity(detected_objects)
-
+        #print(f"ground truth: {detected_objects}")
         self.__detected_objects = detected_objects
 
         return detected_objects
@@ -304,9 +313,14 @@ class SemanticLidarSensor(SimulatedSensor):
 
         # Compute nearest neighbor for each hitpoint
         hitpoints_in_map_frame = []
+        sensor_location = self.__sensor.carla_sensor.get_location()
+
         for hitpoint in hitpoints:
-            sensor_location = self.__sensor.carla_sensor.get_location()
-            new_pos = np.add(hitpoint, np.array([sensor_location.x, sensor_location.y, sensor_location.z]))
+            # TODO need to account for rotation of the sensor
+            hitpoint_reformatted = carla.Location(hitpoint[0], hitpoint[1], hitpoint[2])
+            new_pos_object = self.__sensor.carla_sensor.get_transform().transform(hitpoint_reformatted)
+            # new_pos = np.add(hit_point_relative_in_map_frame, np.array([sensor_location.x, sensor_location.y, sensor_location.z]))
+            new_pos = np.array([new_pos_object.x, new_pos_object.y, new_pos_object.z])
             hitpoints_in_map_frame.append(new_pos)
 
         matching_nearest_neighbor_ids = self.compute_closest_object_id_list(hitpoints_in_map_frame, scene_objects,
@@ -504,6 +518,9 @@ class SemanticLidarSensor(SimulatedSensor):
 
         # If enabled, convert coordinates to sensor-centric frame
         new_position = obj.position
+        new_velocity = obj.velocity
+        new_angularVelocity = obj.angularVelocity
+        new_rotation = obj.rotation
 
         if self.__simulated_sensor_config["use_sensor_centric_frame"]:
             sensor_location = self.__sensor.carla_sensor.get_location()
@@ -519,10 +536,16 @@ class SemanticLidarSensor(SimulatedSensor):
         # newer CARLA version.
 
         new_position[1] *= -1.0
+        new_velocity[1] *= -1.0
+        new_rotation[2] *= -1.0
+        new_angularVelocity[2] *= -1.0
 
         return replace(obj,
                        timestamp=timestamp,
-                       position=new_position
+                       position=new_position,
+                       velocity = new_velocity,
+                       rotation = new_rotation,
+                       angularVelocity = new_angularVelocity
                        )
 
     def update_velocity_angularVelocity(self, detected_objects):
@@ -535,15 +558,15 @@ class SemanticLidarSensor(SimulatedSensor):
                     detected_object.velocity[2] = prev_objects[detected_object.objectId]['pose_diff'][2] / time_diff
 
                 #Calculation based on an assumption that the object's orientation is the direction of travel
-                if time_diff and np.all(detected_object.angularVelocity==0) and not np.all(prev_objects[detected_object.objectId]['rotation_diff']==0):                   
+                if time_diff and np.all(detected_object.angularVelocity==0) and not np.all(prev_objects[detected_object.objectId]['rotation_diff']==0):
                     detected_object.angularVelocity[0] = prev_objects[detected_object.objectId]['rotation_diff'][0]/time_diff
                     detected_object.angularVelocity[1] = prev_objects[detected_object.objectId]['rotation_diff'][1]/time_diff
                     detected_object.angularVelocity[2] = prev_objects[detected_object.objectId]['rotation_diff'][2]/time_diff
 
-            
+
             prev_objects[detected_object.objectId]['timestamp'] = detected_object.timestamp
 
-        
+
         return detected_objects
 
     def store_groundtruth_pose_angular_diff(self, detected_objects):
