@@ -90,11 +90,11 @@ class SensorDataCollector:
             # Skip if object_idx is 0 as it is static objects like buildings (it represents actor_id in new versions 0.9.11+)
             # and a large number of hitpoints which creates performance issues for this library's nearest neighbor algorithm
             # https://github.com/carla-simulator/carla/issues/3191
-            if (detection.object_idx == 0 or detection.object_idx == 15):
+            if (detection.object_idx == 0):
                 continue
 
             point = CarlaUtils.vector3d_to_numpy(detection.point)
-            #print(f"id: {detection.object_idx} and {point}")
+
             if detection.object_idx not in grouped_data:
                 grouped_data[detection.object_idx] = [point]
             else:

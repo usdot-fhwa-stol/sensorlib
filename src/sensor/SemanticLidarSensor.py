@@ -88,9 +88,6 @@ class SemanticLidarSensor(SimulatedSensor):
         actor_angular_extents = self.compute_actor_angular_extents(detected_objects)
         detection_thresholds = self.compute_adjusted_detection_thresholds(detected_objects, object_ranges)
 
-        # TODO
-        #print(f"ground truth: {detected_objects}")
-
         # Instantaneous geometry association
         min_sample_size = self.__simulated_sensor_config["geometry_reassociation"]["min_sample_count"]
         max_sample_size = self.__simulated_sensor_config["geometry_reassociation"]["max_sample_count"]
@@ -101,21 +98,13 @@ class SemanticLidarSensor(SimulatedSensor):
 
         for hit_id, hitpoint_list in downsampled_hitpoints.items():
             for hitpoint in hitpoint_list:
-                #print(f"id: {hit_id} and {hitpoint}")
                 hitpoints_without_ids.append(hitpoint)
 
         hitpoints = self.compute_instantaneous_actor_id_association(hitpoints_without_ids, detected_objects)
 
-        for hit_id, hitpoint_list in hitpoints.items():
-            for hitpoint in hitpoint_list:
-                print(f"id: {hit_id} and {hitpoint}")
-                #hitpoints_without_ids.append(hitpoint)
-
-        # Turning off temporarily as the function is clearning all the objects
-        # https://github.com/usdot-fhwa-stol/carma-utils/issues/194
         detected_objects = self.apply_occlusion(detected_objects, actor_angular_extents, hitpoints,
                                                detection_thresholds)
-        print(f"After occlussion: {len(detected_objects)}")
+
         #compare ground truth for position and rotation for SUMO vehicle
         self.store_groundtruth_pose_angular_diff(detected_objects)
 
@@ -313,14 +302,13 @@ class SemanticLidarSensor(SimulatedSensor):
 
         # Compute nearest neighbor for each hitpoint
         hitpoints_in_map_frame = []
-        sensor_location = self.__sensor.carla_sensor.get_location()
 
         for hitpoint in hitpoints:
-            # TODO need to account for rotation of the sensor
-            hitpoint_reformatted = carla.Location(hitpoint[0], hitpoint[1], hitpoint[2])
-            new_pos_object = self.__sensor.carla_sensor.get_transform().transform(hitpoint_reformatted)
-            # new_pos = np.add(hit_point_relative_in_map_frame, np.array([sensor_location.x, sensor_location.y, sensor_location.z]))
-            new_pos = np.array([new_pos_object.x, new_pos_object.y, new_pos_object.z])
+            hitpoint_in_lidar_frame = carla.Location(hitpoint[0], hitpoint[1], hitpoint[2])
+            # transform function translates a 3D point from local to global
+            # coordinates using the current transformation as frame of reference
+            hitpoint_in_map_frame = self.__sensor.carla_sensor.get_transform().transform(hitpoint_in_lidar_frame)
+            new_pos = np.array([hitpoint_in_map_frame.x, hitpoint_in_map_frame.y, hitpoint_in_map_frame.z])
             hitpoints_in_map_frame.append(new_pos)
 
         matching_nearest_neighbor_ids = self.compute_closest_object_id_list(hitpoints_in_map_frame, scene_objects,
@@ -533,12 +521,13 @@ class SemanticLidarSensor(SimulatedSensor):
         # external users, the Y value should be corrected.
         # This was resolved in a later release, but CARMA currently
         # uses 0.9.10. Remove this fix when CARMA upgrades to a
-        # newer CARLA version.
+        # newer CARLA version. Due to the error in position,
+        # velocity, rotation, and angularVelocity are all affected as well.
 
         new_position[1] *= -1.0
         new_velocity[1] *= -1.0
-        new_rotation[2] *= -1.0
-        new_angularVelocity[2] *= -1.0
+        new_rotation[2] *= -1.0 #yaw
+        new_angularVelocity[2] *= -1.0 #yaw
 
         return replace(obj,
                        timestamp=timestamp,
