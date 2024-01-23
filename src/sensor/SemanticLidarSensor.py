@@ -511,8 +511,12 @@ class SemanticLidarSensor(SimulatedSensor):
         new_rotation = obj.rotation
 
         if self.__simulated_sensor_config["use_sensor_centric_frame"]:
-            sensor_location = self.__sensor.carla_sensor.get_location()
-            new_position = np.subtract(obj.position, np.array([sensor_location.x, sensor_location.y, sensor_location.z]))
+            inv_T = np.array(self.__sensor.carla_sensor.get_transform().get_inverse_matrix())
+            pos_in_map = np.array([new_position[0],
+                                    new_position[1],
+                                    new_position[2],
+                                    1.0])
+            new_position = np.matmul(inv_T, pos_in_map)
 
         # CARLA 0.9.10 has a bug where the y-axis value is negated
         # in reported objects positions and even lidar hitpoints.
