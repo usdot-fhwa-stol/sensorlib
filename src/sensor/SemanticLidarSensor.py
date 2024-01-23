@@ -517,6 +517,10 @@ class SemanticLidarSensor(SimulatedSensor):
                                     new_position[2],
                                     1.0])
             new_position = np.matmul(inv_T, pos_in_map)
+            sensor_rotation = self.__sensor.carla_sensor.get_transform().rotation
+            new_rotation[0] -= math.radians(sensor_rotation.roll)
+            new_rotation[1] -= math.radians(sensor_rotation.pitch)
+            new_rotation[2] -= math.radians(sensor_rotation.yaw)
 
         # CARLA 0.9.10 has a bug where the y-axis value is negated
         # in reported objects positions and even lidar hitpoints.
@@ -571,11 +575,11 @@ class SemanticLidarSensor(SimulatedSensor):
 
                 prev_objects[detected_object.objectId]['pose_diff'] = np.array([pose_diff_x, pose_diff_y, pose_diff_z])
 
-                rotation_diff_pitch = math.radians(detected_object.rotation[0] - prev_objects[detected_object.objectId]['rotation'][0])
-                rotation_diff_yaw = math.radians(detected_object.rotation[1] - prev_objects[detected_object.objectId]['rotation'][1])
-                rotation_diff_roll = math.radians(detected_object.rotation[2] - prev_objects[detected_object.objectId]['rotation'][2])
+                rotation_diff_roll = math.radians(detected_object.rotation[0] - prev_objects[detected_object.objectId]['rotation'][0])
+                rotation_diff_pitch = math.radians(detected_object.rotation[1] - prev_objects[detected_object.objectId]['rotation'][1])
+                rotation_diff_yaw = math.radians(detected_object.rotation[2] - prev_objects[detected_object.objectId]['rotation'][2])
 
-                prev_objects[detected_object.objectId]['rotation_diff'] = np.array([rotation_diff_pitch, rotation_diff_yaw, rotation_diff_roll])
+                prev_objects[detected_object.objectId]['rotation_diff'] = np.array([rotation_diff_roll, rotation_diff_pitch, rotation_diff_yaw])
 
             else:
                 prev_objects[detected_object.objectId] = {}
