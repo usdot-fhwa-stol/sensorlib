@@ -8,7 +8,7 @@
 
 from collections import Counter
 from dataclasses import replace
-
+import carla
 import numpy as np
 from scipy.spatial import distance
 import math
@@ -100,13 +100,11 @@ class SemanticLidarSensor(SimulatedSensor):
             for hitpoint in hitpoint_list:
                 hitpoints_without_ids.append(hitpoint)
 
-
         hitpoints = self.compute_instantaneous_actor_id_association(hitpoints_without_ids, detected_objects)
 
-        # Turning off temporarily as the function is clearning all the objects
-        # https://github.com/usdot-fhwa-stol/carma-utils/issues/194
         detected_objects = self.apply_occlusion(detected_objects, actor_angular_extents, hitpoints,
                                                detection_thresholds)
+
         #compare ground truth for position and rotation for SUMO vehicle
         self.store_groundtruth_pose_angular_diff(detected_objects)
 
@@ -304,9 +302,13 @@ class SemanticLidarSensor(SimulatedSensor):
 
         # Compute nearest neighbor for each hitpoint
         hitpoints_in_map_frame = []
+
         for hitpoint in hitpoints:
-            sensor_location = self.__sensor.carla_sensor.get_location()
-            new_pos = np.add(hitpoint, np.array([sensor_location.x, sensor_location.y, sensor_location.z]))
+            hitpoint_in_lidar_frame = carla.Location(hitpoint[0], hitpoint[1], hitpoint[2])
+            # transform function translates a 3D point from local to global
+            # coordinates using the current transformation as frame of reference
+            hitpoint_in_map_frame = self.__sensor.carla_sensor.get_transform().transform(hitpoint_in_lidar_frame)
+            new_pos = np.array([hitpoint_in_map_frame.x, hitpoint_in_map_frame.y, hitpoint_in_map_frame.z])
             hitpoints_in_map_frame.append(new_pos)
 
         matching_nearest_neighbor_ids = self.compute_closest_object_id_list(hitpoints_in_map_frame, scene_objects,
@@ -504,10 +506,21 @@ class SemanticLidarSensor(SimulatedSensor):
 
         # If enabled, convert coordinates to sensor-centric frame
         new_position = obj.position
+        new_velocity = obj.velocity
+        new_angularVelocity = obj.angularVelocity
+        new_rotation = obj.rotation
 
         if self.__simulated_sensor_config["use_sensor_centric_frame"]:
-            sensor_location = self.__sensor.carla_sensor.get_location()
-            new_position = np.subtract(obj.position, np.array([sensor_location.x, sensor_location.y, sensor_location.z]))
+            inv_T = np.array(self.__sensor.carla_sensor.get_transform().get_inverse_matrix())
+            pos_in_map = np.array([new_position[0],
+                                    new_position[1],
+                                    new_position[2],
+                                    1.0])
+            new_position = np.matmul(inv_T, pos_in_map)
+            sensor_rotation = self.__sensor.carla_sensor.get_transform().rotation
+            new_rotation[0] -= math.radians(sensor_rotation.roll)
+            new_rotation[1] -= math.radians(sensor_rotation.pitch)
+            new_rotation[2] -= math.radians(sensor_rotation.yaw)
 
         # CARLA 0.9.10 has a bug where the y-axis value is negated
         # in reported objects positions and even lidar hitpoints.
@@ -516,13 +529,20 @@ class SemanticLidarSensor(SimulatedSensor):
         # external users, the Y value should be corrected.
         # This was resolved in a later release, but CARMA currently
         # uses 0.9.10. Remove this fix when CARMA upgrades to a
-        # newer CARLA version.
+        # newer CARLA version. Due to the error in position,
+        # velocity, rotation, and angularVelocity are all affected as well.
 
         new_position[1] *= -1.0
+        new_velocity[1] *= -1.0
+        new_rotation[2] *= -1.0 #yaw
+        new_angularVelocity[2] *= -1.0 #yaw
 
         return replace(obj,
                        timestamp=timestamp,
-                       position=new_position
+                       position=new_position,
+                       velocity = new_velocity,
+                       rotation = new_rotation,
+                       angularVelocity = new_angularVelocity
                        )
 
     def update_velocity_angularVelocity(self, detected_objects):
@@ -535,15 +555,15 @@ class SemanticLidarSensor(SimulatedSensor):
                     detected_object.velocity[2] = prev_objects[detected_object.objectId]['pose_diff'][2] / time_diff
 
                 #Calculation based on an assumption that the object's orientation is the direction of travel
-                if time_diff and np.all(detected_object.angularVelocity==0) and not np.all(prev_objects[detected_object.objectId]['rotation_diff']==0):                   
+                if time_diff and np.all(detected_object.angularVelocity==0) and not np.all(prev_objects[detected_object.objectId]['rotation_diff']==0):
                     detected_object.angularVelocity[0] = prev_objects[detected_object.objectId]['rotation_diff'][0]/time_diff
                     detected_object.angularVelocity[1] = prev_objects[detected_object.objectId]['rotation_diff'][1]/time_diff
                     detected_object.angularVelocity[2] = prev_objects[detected_object.objectId]['rotation_diff'][2]/time_diff
 
-            
+
             prev_objects[detected_object.objectId]['timestamp'] = detected_object.timestamp
 
-        
+
         return detected_objects
 
     def store_groundtruth_pose_angular_diff(self, detected_objects):
@@ -555,11 +575,11 @@ class SemanticLidarSensor(SimulatedSensor):
 
                 prev_objects[detected_object.objectId]['pose_diff'] = np.array([pose_diff_x, pose_diff_y, pose_diff_z])
 
-                rotation_diff_pitch = math.radians(detected_object.rotation[0] - prev_objects[detected_object.objectId]['rotation'][0])
-                rotation_diff_yaw = math.radians(detected_object.rotation[1] - prev_objects[detected_object.objectId]['rotation'][1])
-                rotation_diff_roll = math.radians(detected_object.rotation[2] - prev_objects[detected_object.objectId]['rotation'][2])
+                rotation_diff_roll = math.radians(detected_object.rotation[0] - prev_objects[detected_object.objectId]['rotation'][0])
+                rotation_diff_pitch = math.radians(detected_object.rotation[1] - prev_objects[detected_object.objectId]['rotation'][1])
+                rotation_diff_yaw = math.radians(detected_object.rotation[2] - prev_objects[detected_object.objectId]['rotation'][2])
 
-                prev_objects[detected_object.objectId]['rotation_diff'] = np.array([rotation_diff_pitch, rotation_diff_yaw, rotation_diff_roll])
+                prev_objects[detected_object.objectId]['rotation_diff'] = np.array([rotation_diff_roll, rotation_diff_pitch, rotation_diff_yaw])
 
             else:
                 prev_objects[detected_object.objectId] = {}
