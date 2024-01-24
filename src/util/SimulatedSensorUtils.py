@@ -25,13 +25,13 @@ class DetectedObjectEncoder(json.JSONEncoder):
                 'confidence': obj.confidence,
                 'projString': obj.projString,
                 'objectId': obj.objectId,
-                'position':{'x': obj.position[0], 'y': obj.position[1], 'z': obj.position[2]},
+                'position':{'x': round(obj.position[0], 3), 'y': round(obj.position[1],3), 'z': round(obj.position[2], 3)},
                 'positionCovariance': obj.positionCovariance.tolist(),
-                'velocity':{'x': obj.velocity[0], 'y': obj.velocity[1], 'z': obj.velocity[2]},
+                'velocity':{'x': round(obj.velocity[0], 3), 'y': round(obj.velocity[1], 3), 'z': round(obj.velocity[2],3)},
                 'velocityCovariance': obj.velocityCovariance.tolist(),
-                'angularVelocity': {'x': obj.angularVelocity[0], 'y': obj.angularVelocity[1], 'z': obj.angularVelocity[2]},
+                'angularVelocity': {'x': round(obj.angularVelocity[0], 3), 'y': round(obj.angularVelocity[1],3), 'z': round(obj.angularVelocity[2],3)},
                 'angularVelocityCovariance': obj.angularVelocityCovariance.tolist(),
-                'size': {'length': obj.size[0], 'height': obj.size[1], 'width': obj.size[2]},
+                'size': {'length': round(obj.size[0], 3), 'height': round(obj.size[1],3), 'width': round(obj.size[2],3)},
                 'timestamp': (int)((obj.timestamp)*1000), #CDASim expects Int in milliseconds
                 'sensorId': obj.sensorId
                 #'bounding_box_in_world_coordinate_frame': [array.tolist() for array in obj.bounding_box_in_world_coordinate_frame],
