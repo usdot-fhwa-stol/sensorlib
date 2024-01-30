@@ -146,7 +146,7 @@ if __name__ == "__main__":
     
     args = arg_parser.parse_args()
     log_level = logging.getLevelName(args.log_level)
-    log_file_name = datetime.datetime.now().strftime("carla_cdasim_adapter_%H_%M_%d_%m_%Y.log")
+    log_file_name = datetime.datetime.now().strftime("/home/CarlaCDASimAdapter/logs/carla_cdasim_adapter_%H_%M_%d_%m_%Y.log")
     FORMAT = '%(asctime)s:%(levelname)s:%(message)s'
     logging.basicConfig(format=FORMAT,  
         handlers=[
