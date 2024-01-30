@@ -41,7 +41,7 @@ class CarlaCDASimAdapter:
         logging.info("Starting sensorlib XML-RPC server.")
         # Silence XMLRPC server logging if not in debug
         log_requests = logging.getLogger().isEnabledFor(logging.DEBUG)
-        server = SimpleXMLRPCServer((xmlrpc_server_host, xmlrpc_server_port), logRequest=log_requests)
+        server = SimpleXMLRPCServer((xmlrpc_server_host, xmlrpc_server_port), logRequests=log_requests)
         server.register_introspection_functions()
         server.register_function(self.__create_simulated_semantic_lidar_sensor,
                                  "create_simulated_semantic_lidar_sensor")
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     
     args = arg_parser.parse_args()
     log_level = logging.getLevelName(args.log_level)
-    log_file_name = datetime.now(),strftime("carla_cdasim_adapter_%H_%M_%d_%m_%Y.log")
+    log_file_name = datetime.datetime.now().strftime("carla_cdasim_adapter_%H_%M_%d_%m_%Y.log")
     FORMAT = '%(asctime)s:%(levelname)s:%(message)s'
     logging.basicConfig(format=FORMAT,  
         handlers=[
