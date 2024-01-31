@@ -143,14 +143,19 @@ if __name__ == "__main__":
         default="INFO",
         type=str,
         help="Log Level for service (default: INFO)")
+    arg_parser.add_argument(
+        "--log-file-path",
+        default="/home/CarlaCDASimAdapter/logs/",
+        type=str,
+        help="Absolute path for log file.")
     
     args = arg_parser.parse_args()
     log_level = logging.getLevelName(args.log_level)
-    log_file_name = datetime.datetime.now().strftime("/home/CarlaCDASimAdapter/logs/carla_cdasim_adapter_%H_%M_%d_%m_%Y.log")
+    log_file_name = datetime.datetime.now().strftime("carla_cdasim_adapter_%H_%M_%d_%m_%Y.log")
     FORMAT = '%(asctime)s:%(levelname)s:%(message)s'
     logging.basicConfig(format=FORMAT,  
         handlers=[
-            logging.FileHandler(log_file_name),
+            logging.FileHandler(args.log_file_path + log_file_name),
             logging.StreamHandler()
             ], 
         level=log_level)
