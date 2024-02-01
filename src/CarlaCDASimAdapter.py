@@ -8,6 +8,7 @@
 import argparse
 import threading
 import logging
+import datetime
 from xmlrpc.server import SimpleXMLRPCServer
 import sys
 sys.path.append('../')
@@ -38,7 +39,9 @@ class CarlaCDASimAdapter:
         """
         # Create an XML-RPC server
         logging.info("Starting sensorlib XML-RPC server.")
-        server = SimpleXMLRPCServer((xmlrpc_server_host, xmlrpc_server_port))
+        # Silence XMLRPC server logging if not in debug
+        log_requests = logging.getLogger().isEnabledFor(logging.DEBUG)
+        server = SimpleXMLRPCServer((xmlrpc_server_host, xmlrpc_server_port), logRequests=log_requests)
         server.register_introspection_functions()
         server.register_function(self.__create_simulated_semantic_lidar_sensor,
                                  "create_simulated_semantic_lidar_sensor")
@@ -140,11 +143,23 @@ if __name__ == "__main__":
         default="INFO",
         type=str,
         help="Log Level for service (default: INFO)")
+    arg_parser.add_argument(
+        "--log-file-path",
+        default="/home/CarlaCDASimAdapter/logs/",
+        type=str,
+        help="Absolute path for log file.")
     
     args = arg_parser.parse_args()
     log_level = logging.getLevelName(args.log_level)
+    log_file_name = datetime.datetime.now().strftime("carla_cdasim_adapter_%H_%M_%d_%m_%Y.log")
     FORMAT = '%(asctime)s:%(levelname)s:%(message)s'
-    logging.basicConfig(format=FORMAT, filename='cdasim_adapter.log', level=log_level)
+    logging.basicConfig(format=FORMAT,  
+        handlers=[
+            logging.FileHandler(args.log_file_path + log_file_name),
+            logging.StreamHandler()
+            ], 
+        level=log_level)
+
     sensor_api = CarlaCDASimAPI.build_from_host_spec(args.carla_host, args.carla_port)
     sensor_data_service = CarlaCDASimAdapter(sensor_api)
     sensor_data_service.start_xml_rpc_server(args.xmlrpc_server_host, args.xmlrpc_server_port, args.sensor_config_file, args.noise_model_config_file, args.detection_cycle_delay_seconds, True)
