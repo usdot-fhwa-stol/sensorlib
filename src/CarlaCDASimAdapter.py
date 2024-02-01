@@ -82,13 +82,13 @@ class CarlaCDASimAdapter:
         
     def __get_simulated_sensor(self, infrastructure_id, sensor_id):
         sensor = self.__api.get_simulated_sensor(infrastructure_id, sensor_id)
-        logging.info(f"Retrieved sensor : {sensor.get_id()} for infrastructure {infrastructure_id}")
+        logging.debug(f"Retrieved sensor : {sensor.get_id()} for infrastructure {infrastructure_id}")
         return str(sensor.get_id())
         
     def __get_detected_objects(self, infrastructure_id, sensor_id):
         detected_objects = self.__api.get_detected_objects(infrastructure_id, sensor_id)
         return_json = str(SimulatedSensorUtils.serialize_to_json(detected_objects))
-        logging.info(f"Sensor {sensor_id} detected objects {return_json}")
+        logging.debug(f"Sensor {sensor_id} detected objects {return_json}")
         return return_json
         
 if __name__ == "__main__":
