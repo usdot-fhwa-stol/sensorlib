@@ -84,6 +84,8 @@ class SemanticLidarSensor(SimulatedSensor):
         # Get LIDAR hitpoints with Actor ID associations
         timestamp, hitpoints = self.__data_collector.get_carla_lidar_hitpoints()
 
+        detected_objects = [replace(obj, timestamp=timestamp) for obj in detected_objects]
+
         # Compute data needed for occlusion operation
         actor_angular_extents = self.compute_actor_angular_extents(detected_objects)
         detection_thresholds = self.compute_adjusted_detection_thresholds(detected_objects, object_ranges)
@@ -108,13 +110,14 @@ class SemanticLidarSensor(SimulatedSensor):
         #compare ground truth for position and rotation for SUMO vehicle
         self.store_groundtruth_pose_angular_diff(detected_objects)
 
+        #due to sumo vehicle not having velocity and angular velocity in CARLA, added a patch to calculate those parameters
+        detected_objects = self.update_velocity_angularVelocity(detected_objects)
+
         # Apply noise
         detected_objects = self.apply_noise(detected_objects)
 
         # Update reference frame, and detection time
         detected_objects = self.update_object_frame_and_timestamps(detected_objects, timestamp)
-        #due to sumo vehicle not having velocity and angular velocity in CARLA, added a patch to calculate those parameters
-        detected_objects = self.update_velocity_angularVelocity(detected_objects)
 
         self.__detected_objects = detected_objects
 
@@ -584,8 +587,5 @@ class SemanticLidarSensor(SimulatedSensor):
             else:
                 prev_objects[detected_object.objectId] = {}
 
-            prev_objects[detected_object.objectId]['pose'] = detected_object.position
-            prev_objects[detected_object.objectId]['rotation'] = detected_object.rotation
-
-
-
+            prev_objects[detected_object.objectId]['pose'] = detected_object.position.copy()
+            prev_objects[detected_object.objectId]['rotation'] = detected_object.rotation.copy()
